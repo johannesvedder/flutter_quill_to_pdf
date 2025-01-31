@@ -16,6 +16,8 @@ import 'package:flutter_quill_to_pdf/flutter_quill_to_pdf.dart';
 import '../../../utils/css.dart';
 import 'attribute_functions.dart';
 import 'document_functions.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/http.dart' as http;
 
 abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
     implements
@@ -97,57 +99,62 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
   //TODO: implement validation for base64 parsing
   @override
   Future<pw.Widget> getImageBlock(Line line, [pw.Alignment? alignment]) async {
-    double? width = null;
-    double? height = null;
+    double? width;
+    double? height;
     final String data = (line.data as Map<String, dynamic>)['image'];
     final Map<String, dynamic> attributes =
-        parseCssStyles(line.attributes?['style'] ?? '', 'left');
+    parseCssStyles(line.attributes?['style'] ?? '', 'left');
+
     if (attributes.isNotEmpty) {
       width = attributes['width'] ?? pageWidth;
       height = attributes['height'];
     }
-    late final File? file;
-    if (Constant.IMAGE_FROM_NETWORK_URL.hasMatch(data)) {
-      final String url = data;
+
+    File? file;
+    Uint8List? imageBytes;
+
+    if (kIsWeb) {
+      imageBytes = await fetchBlobAsBytes(data);
+    } else if (Constant.IMAGE_FROM_NETWORK_URL.hasMatch(data)) {
       final String pathStorage =
-          '${(await getApplicationCacheDirectory()).path}/image (${Random.secure().nextInt(99999) + 50})';
+          '${(await getApplicationCacheDirectory()).path}/image_${Random.secure().nextInt(99999) + 50}';
       try {
         file = File(pathStorage);
-        await Dio().download(url, pathStorage);
+        await Dio().download(data, pathStorage);
       } on DioException {
-        rethrow;
+        return pw.SizedBox.shrink();
       }
     } else if (Constant.IMAGE_LOCAL_STORAGE_PATH_PATTERN.hasMatch(data)) {
       file = File(data);
     } else {
       final Uint8List bytes = base64Decode(data);
       final String pathStorage =
-          '${(await getApplicationCacheDirectory()).path}/image (${Random.secure().nextInt(99999) + 50})';
+          '${(await getApplicationCacheDirectory()).path}/image_${Random.secure().nextInt(99999) + 50}';
       try {
         file = File(pathStorage);
-        file.writeAsBytes(bytes);
+        await file.writeAsBytes(bytes);
       } on DioException {
-        rethrow;
+        return pw.SizedBox.shrink();
       }
     }
 
-    if (!(await file.exists())) {
+    if (kIsWeb ? (imageBytes == null || imageBytes.isEmpty) 
+        : (file == null || !(await file.exists()))) {
       return pw.SizedBox.shrink();
     }
-    // verify if exceded height using page format params
+
     if (height != null && height >= pageHeight) height = pageHeight;
-    // verify if exceded width using page format params
     if (width != null && width >= pageWidth) width = pageWidth;
+
     return pw.RichText(
       softWrap: true,
       overflow: pw.TextOverflow.span,
       text: pw.WidgetSpan(
         child: pw.Container(
           alignment: alignment,
-          constraints:
-              height == null ? const pw.BoxConstraints(maxHeight: 450) : null,
+          constraints: height == null ? const pw.BoxConstraints(maxHeight: 450) : null,
           child: pw.Image(
-            pw.MemoryImage((await file.readAsBytes())),
+            pw.MemoryImage(kIsWeb ? imageBytes! : await file!.readAsBytes()),
             dpi: 230,
             height: height,
             width: width,
@@ -155,6 +162,16 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
         ),
       ),
     );
+  }
+
+
+  Future<Uint8List> fetchBlobAsBytes(String blobUrl) async {
+    final response = await http.get(Uri.parse(blobUrl));
+    if (response.statusCode == 200) {
+      return response.bodyBytes;
+    } else {
+      throw Exception('Failed to load blob image');
+    }
   }
 
   @override
