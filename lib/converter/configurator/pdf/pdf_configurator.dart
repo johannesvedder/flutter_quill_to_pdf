@@ -3,20 +3,22 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
+
 import 'package:collection/collection.dart';
 import 'package:dart_quill_delta/dart_quill_delta.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_quill_delta_easy_parser/flutter_quill_delta_easy_parser.dart';
 import 'package:flutter_quill_to_pdf/core/constant/constants.dart';
+import 'package:flutter_quill_to_pdf/flutter_quill_to_pdf.dart';
+import 'package:http/http.dart' as http;
 import 'package:numerus/roman/roman.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart' show PdfColor, PdfColors;
 import 'package:pdf/widgets.dart' as pw;
-import 'package:flutter_quill_to_pdf/flutter_quill_to_pdf.dart';
+
 import '../../../utils/css.dart';
 import 'attribute_functions.dart';
 import 'document_functions.dart';
-import 'package:http/http.dart' as http;
 
 abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
     implements
@@ -104,7 +106,7 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
     double? height;
     final String data = (line.data as Map<String, dynamic>)['image'];
     final Map<String, dynamic> attributes =
-    parseCssStyles(line.attributes?['style'] ?? '', 'left');
+        parseCssStyles(line.attributes?['style'] ?? '', 'left');
 
     if (attributes.isNotEmpty) {
       width = attributes['width'] ?? pageWidth;
@@ -139,12 +141,13 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
       }
     }
 
-    if (isWeb ? (imageBytes == null || imageBytes.isEmpty) 
+    if (isWeb
+        ? (imageBytes == null || imageBytes.isEmpty)
         : (file == null || !(await file.exists()))) {
       return pw.SizedBox.shrink();
     }
 
-    // verify if exceded height using page format params
+    // verify if exceeded height using page format params
     if (height != null && height >= pageHeight) height = pageHeight;
     if (width != null && width >= pageWidth) width = pageWidth;
 
@@ -154,9 +157,10 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
       text: pw.WidgetSpan(
         child: pw.Container(
           alignment: alignment,
-          constraints: height == null ? const pw.BoxConstraints(maxHeight: 450) : null,
+          constraints:
+              height == null ? const pw.BoxConstraints(maxHeight: 450) : null,
           child: pw.Image(
-            pw.MemoryImage(isWeb ? imageBytes! : (await file!.readAsBytes()) ),
+            pw.MemoryImage(isWeb ? imageBytes! : (await file!.readAsBytes())),
             dpi: 230,
             height: height,
             width: width,

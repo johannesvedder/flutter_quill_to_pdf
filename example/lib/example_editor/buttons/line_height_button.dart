@@ -32,7 +32,7 @@ class QuillLineHeightButtonState extends QuillToolbarBaseValueButtonState<
   final MenuController _menuController = MenuController();
 
   List<String> get rawItemsMap {
-    const List<String> spacings = default_editor_spacing;
+    const List<String> spacings = defaultEditorSpacing;
     return spacings;
   }
 

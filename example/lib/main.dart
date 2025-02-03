@@ -198,8 +198,9 @@ class _MyHomePageState extends State<MyHomePage> {
                           onChange: (Document document) {
                             if (mounted) {
                               WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (!_shouldShowToolbar.value)
+                                if (!_shouldShowToolbar.value) {
                                   _shouldShowToolbar.value = true;
+                                }
                               });
                             }
                           },

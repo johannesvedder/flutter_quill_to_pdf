@@ -2,17 +2,18 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
+
 import 'package:dart_quill_delta/dart_quill_delta.dart';
 import 'package:flutter_quill_delta_easy_parser/flutter_quill_delta_easy_parser.dart'
     as ep;
 import 'package:flutter_quill_to_pdf/core/request/font_family_request.dart';
 import 'package:flutter_quill_to_pdf/core/response/font_family_response.dart';
+import 'package:flutter_quill_to_pdf/flutter_quill_to_pdf.dart' as qpdf;
 import 'package:flutter_quill_to_pdf/utils/extensions.dart';
 import 'package:flutter_quill_to_pdf/utils/typedefs.dart';
 import 'package:meta/meta.dart';
 import 'package:pdf/pdf.dart' show PdfColor;
 import 'package:pdf/widgets.dart' as pw;
-import 'package:flutter_quill_to_pdf/flutter_quill_to_pdf.dart' as qpdf;
 import 'package:universal_html/html.dart' as web;
 
 class PDFConverter {
@@ -104,7 +105,7 @@ class PDFConverter {
   late final List<pw.Font> globalFontsFallbacks;
 
   /// [isWeb] is used to know is the current platform is web since the way of the fetch images files
-  /// is different from the other platforms 
+  /// is different from the other platforms
   @experimental
   final bool isWeb;
 
@@ -286,8 +287,7 @@ class PDFConverter {
         web.AnchorElement()
           ..href =
               "data:application/octet-stream;charset=utf-16le;base64,${base64.encode(fileInts)}"
-          ..setAttribute(
-              "download", File(path).uri.pathSegments.last)
+          ..setAttribute("download", File(path).uri.pathSegments.last)
           ..click();
         onSucessWrite?.call('');
         return;
@@ -313,7 +313,7 @@ class PDFConverter {
     return Delta.fromJson(jsonDecode(json));
   }
 
-  /// Return a container with the widgets generated from the Document passed 
+  /// Return a container with the widgets generated from the Document passed
   Future<pw.Widget?> generateWidget({
     qpdf.DeltaAttributesOptions? deltaOptionalAttr,
     double? maxWidth,
@@ -371,5 +371,4 @@ class PDFConverter {
       rethrow;
     }
   }
-
 }
