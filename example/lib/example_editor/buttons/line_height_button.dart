@@ -1,7 +1,7 @@
 import 'package:example/example_editor/buttons/utils.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_quill/extensions.dart';
 import 'package:flutter_quill/flutter_quill.dart';
+import 'package:flutter_quill/flutter_quill_internal.dart';
 import 'package:flutter_quill/translations.dart';
 import 'package:flutter_quill_to_pdf/flutter_quill_to_pdf.dart';
 
