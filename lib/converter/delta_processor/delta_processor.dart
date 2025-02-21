@@ -1,9 +1,10 @@
 // ignore_for_file: always_specify_types
 
 import 'dart:convert';
+
 import 'package:dart_quill_delta/dart_quill_delta.dart' as fq;
 import 'package:dart_quill_delta/dart_quill_delta.dart' as ops;
-import 'package:flutter_quill_delta_easy_parser/flutter_quill_delta_easy_parser.dart';
+import 'package:flutter_quill_delta_easy_parser/extensions/extensions.dart';
 import 'package:flutter_quill_to_pdf/converter/delta_processor/delta_attributes_options.dart';
 import 'package:flutter_quill_to_pdf/core/extensions/map_extension.dart';
 import 'package:flutter_quill_to_pdf/core/extensions/string_extension.dart';
