@@ -2,10 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
-
 import 'package:dart_quill_delta/dart_quill_delta.dart';
-import 'package:flutter_quill_delta_easy_parser/flutter_quill_delta_easy_parser.dart'
-    as ep;
+import 'package:flutter_quill_delta_easy_parser/flutter_quill_delta_easy_parser.dart' as ep;
+import 'package:flutter_quill_to_pdf/converter/delta_processor/delta_attributes_options.dart';
 import 'package:flutter_quill_to_pdf/core/request/font_family_request.dart';
 import 'package:flutter_quill_to_pdf/core/response/font_family_response.dart';
 import 'package:flutter_quill_to_pdf/flutter_quill_to_pdf.dart' as qpdf;
@@ -36,8 +35,7 @@ class PDFConverter {
   final List<qpdf.CustomWidget> customBuilders;
 
   ///A font when converter detect a font
-  final FontFamilyResponse Function(FontFamilyRequest familyRequest)?
-      onRequestFontFamily;
+  final FontFamilyResponse Function(FontFamilyRequest familyRequest)? onRequestFontFamily;
 
   ///If you need to [customize] the [theme] of the [pdf document], override this param
   final pw.ThemeData? themeData;
@@ -72,17 +70,17 @@ class PDFConverter {
 
   final qpdf.PDFWidgetBuilder<ep.Line, pw.Widget>? onDetectImageBlock;
 
+  /// When an image is being builded and an error is catched, this is called
+  final PDFWidgetErrorBuilder<String, pw.Widget, ep.Line>? onDetectErrorInImage;
+
   /// When a rich text styles are detected, this builder is called
-  final qpdf.PDFWidgetBuilder<ep.Line, List<pw.InlineSpan>>?
-      onDetectInlineRichTextStyles;
+  final qpdf.PDFWidgetBuilder<ep.Line, List<pw.InlineSpan>>? onDetectInlineRichTextStyles;
 
   /// When a header block is detected, this builder is called
-  final qpdf.PDFWidgetBuilder<List<pw.InlineSpan>, pw.Widget>?
-      onDetectHeaderBlock;
+  final qpdf.PDFWidgetBuilder<List<pw.InlineSpan>, pw.Widget>? onDetectHeaderBlock;
 
   /// When a aligned block is detected, this builder is called
-  final qpdf.PDFWidgetBuilder<List<pw.InlineSpan>, pw.Widget>?
-      onDetectAlignedParagraph;
+  final qpdf.PDFWidgetBuilder<List<pw.InlineSpan>, pw.Widget>? onDetectAlignedParagraph;
 
   /// When a non rich text line is detected, this builder is called
   /// Tipically this happens when the insertion has not inline attributes
@@ -95,14 +93,28 @@ class PDFConverter {
   final qpdf.PDFWidgetBuilder<List<pw.InlineSpan>, pw.Widget>? onDetectList;
 
   /// When a code block is detected, this builder is called
-  final qpdf.PDFWidgetBuilder<List<pw.InlineSpan>, pw.Widget>?
-      onDetectCodeBlock;
+  final qpdf.PDFWidgetBuilder<List<pw.InlineSpan>, pw.Widget>? onDetectCodeBlock;
 
   /// When a block quote is detected, this builder is called
-  final qpdf.PDFWidgetBuilder<List<pw.InlineSpan>, pw.Widget>?
-      onDetectBlockquote;
+  final qpdf.PDFWidgetBuilder<List<pw.InlineSpan>, pw.Widget>? onDetectBlockquote;
 
   late final List<pw.Font> globalFontsFallbacks;
+
+  /// This enable the highlight for code-block blocks
+  @experimental
+  final bool enableCodeBlockHighlighting;
+
+  /// isLightCodeBlockTheme is used when enableCodeBlockHighlighting is true
+  /// to decide the correct style for the spans
+  @experimental
+  final bool isLightCodeBlockTheme;
+
+  /// This gives the ability to have our custom code-block highlight theme
+  @experimental
+  final Map<String, pw.TextStyle>? customCodeHighlightTheme;
+  // This let us create custom sizes when a Header is detected
+  @experimental
+  final List<double>? customHeadingSizes;
 
   /// [isWeb] is used to know is the current platform is web since the way of the fetch images files
   /// is different from the other platforms
@@ -112,7 +124,11 @@ class PDFConverter {
   PDFConverter({
     required this.pageFormat,
     required this.document,
-    this.isWeb = false,
+    @experimental this.enableCodeBlockHighlighting = true,
+    @experimental this.customHeadingSizes,
+    @experimental this.isLightCodeBlockTheme = true,
+    @experimental this.customCodeHighlightTheme,
+    @experimental this.isWeb = false,
     this.textDirection = TextDirection.ltr,
     this.frontMatterDelta,
     this.backMatterDelta,
@@ -136,19 +152,11 @@ class PDFConverter {
     this.onDetectCommonText,
     this.onDetectHeaderBlock,
     this.onDetectImageBlock,
+    this.onDetectErrorInImage,
     this.onDetectInlineRichTextStyles,
     this.onDetectLink,
     this.onDetectList,
-  })  : assert(pageFormat.height > 30, 'Page size height isn\'t valid'),
-        assert(pageFormat.width > 30, 'Page size width isn\'t valid'),
-        assert(pageFormat.marginBottom >= 0.0,
-            'Margin to bottom with value ${pageFormat.marginBottom}'),
-        assert(pageFormat.marginLeft >= 0.0,
-            'Margin to left with value ${pageFormat.marginLeft}'),
-        assert(pageFormat.marginRight >= 0.0,
-            'Margin to right with value ${pageFormat.marginRight}'),
-        assert(pageFormat.marginTop >= 0.0,
-            'Margin to tp with value ${pageFormat.marginTop}') {
+  }) {
     globalFontsFallbacks = <pw.Font>[
       ...fallbacks,
       pw.Font.helvetica(),
@@ -168,20 +176,25 @@ class PDFConverter {
 
   ///Creates the PDF document an return this one
   Future<pw.Document?> createDocument({
+    @Deprecated('deltaOptionalAttr is no longer used, and will be removed in future releases.')
     qpdf.DeltaAttributesOptions? deltaOptionalAttr,
+    @Deprecated('overrideAttributes is no longer used and will be removed in future releases.')
     bool overrideAttributesPassedByUser = false,
+    @Deprecated('shouldProcessDeltas is no longer used and will be removed in future releases.')
+    bool shouldProcessDeltas = true,
     void Function(dynamic error)? onException,
     PageBuilder? pageBuilder,
-    bool shouldProcessDeltas = true,
   }) async {
-    deltaOptionalAttr ??= qpdf.DeltaAttributesOptions.common();
     final qpdf.Converter<Delta, pw.Document> converter = qpdf.PdfService(
       pageFormat: pageFormat,
       fonts: globalFontsFallbacks,
       customTheme: themeData,
-      textDirection: textDirection.toPdf(),
+      directionality: textDirection.toPdf(),
       pageBuilder: pageBuilder,
       isWeb: isWeb,
+      enableCodeBlockHighlighting: enableCodeBlockHighlighting,
+      isLightCodeBlockTheme: isLightCodeBlockTheme,
+      customCodeHighlightTheme: customCodeHighlightTheme,
       customBuilders: customBuilders,
       blockQuoteBackgroundColor: blockQuoteBackgroundColor,
       blockQuoteDividerColor: blockQuoteDividerColor,
@@ -199,22 +212,14 @@ class PDFConverter {
       blockQuotethicknessDividerColor: blockQuotethicknessDividerColor,
       onDetectHeaderBlock: onDetectHeaderBlock,
       onDetectImageBlock: onDetectImageBlock,
+      onDetectErrorInImage: onDetectErrorInImage,
       onDetectInlineRichTextStyles: onDetectInlineRichTextStyles,
       onDetectLink: onDetectLink,
       onDetectList: onDetectList,
       onRequestFontFamily: onRequestFontFamily,
-      backM: !shouldProcessDeltas
-          ? backMatterDelta
-          : processDelta(backMatterDelta, deltaOptionalAttr,
-              overrideAttributesPassedByUser),
-      frontM: !shouldProcessDeltas
-          ? frontMatterDelta
-          : processDelta(frontMatterDelta, deltaOptionalAttr,
-              overrideAttributesPassedByUser),
-      document: !shouldProcessDeltas
-          ? document
-          : processDelta(
-              document, deltaOptionalAttr, overrideAttributesPassedByUser)!,
+      backM: backMatterDelta,
+      frontM: frontMatterDelta,
+      document: document,
     );
     try {
       return await converter.generateDoc();
@@ -228,16 +233,17 @@ class PDFConverter {
   /// This implementation can throw PathNotFoundException or exceptions based in Storage capabilities
   Future<void> createDocumentFile({
     required String path,
+    @Deprecated('deltaOptionalAttr is no longer used, and will be removed in future releases')
+    qpdf.DeltaAttributesOptions? deltaOptionalAttr,
+    @Deprecated('overrideAttributes is no longer used and will be removed in future releases.')
+    bool overrideAttributesPassedByUser = false,
+    @Deprecated('shouldProcessDeltas is no longer used and will be removed in future releases.')
+    bool shouldProcessDeltas = true,
+    @Deprecated('Use isWeb global variable from PDFConverter instead') bool isWeb = false,
     void Function(dynamic error)? onException,
     void Function([Object? data])? onSucessWrite,
-    qpdf.DeltaAttributesOptions? deltaOptionalAttr,
-    bool overrideAttributesPassedByUser = false,
     PageBuilder? pageBuilder,
-    bool shouldProcessDeltas = true,
-    @Deprecated('Use isWeb global variable from PDFConverter instead')
-    bool isWeb = false,
   }) async {
-    deltaOptionalAttr ??= qpdf.DeltaAttributesOptions.common();
     final qpdf.Converter<Delta, pw.Document> converter = qpdf.PdfService(
       pageFormat: pageFormat,
       fonts: globalFontsFallbacks,
@@ -248,14 +254,18 @@ class PDFConverter {
       onDetectAlignedParagraph: onDetectAlignedParagraph,
       onDetectCommonText: onDetectCommonText,
       customTheme: themeData,
+      enableCodeBlockHighlighting: enableCodeBlockHighlighting,
+      isLightCodeBlockTheme: isLightCodeBlockTheme,
+      customCodeHighlightTheme: customCodeHighlightTheme,
       blockQuoteBackgroundColor: blockQuoteBackgroundColor,
       blockQuoteDividerColor: blockQuoteDividerColor,
       codeBlockBackgroundColor: codeBlockBackgroundColor,
       codeBlockFont: codeBlockFont,
       codeBlockNumLinesTextStyle: codeBlockNumLinesTextStyle,
       codeBlockTextStyle: codeBlockTextStyle,
+      onDetectErrorInImage: onDetectErrorInImage,
       blockQuoteTextStyle: blockQuoteTextStyle,
-      textDirection: textDirection.toPdf(),
+      directionality: textDirection.toPdf(),
       onDetectBlockquote: onDetectBlockquote,
       onDetectCodeBlock: onDetectCodeBlock,
       onDetectHeaderBlock: onDetectHeaderBlock,
@@ -266,18 +276,9 @@ class PDFConverter {
       onDetectInlineRichTextStyles: onDetectInlineRichTextStyles,
       onDetectLink: onDetectLink,
       onDetectList: onDetectList,
-      backM: !shouldProcessDeltas
-          ? backMatterDelta
-          : processDelta(backMatterDelta, deltaOptionalAttr,
-              overrideAttributesPassedByUser),
-      frontM: !shouldProcessDeltas
-          ? frontMatterDelta
-          : processDelta(frontMatterDelta, deltaOptionalAttr,
-              overrideAttributesPassedByUser),
-      document: !shouldProcessDeltas
-          ? document
-          : processDelta(
-              document, deltaOptionalAttr, overrideAttributesPassedByUser)!,
+      backM: backMatterDelta,
+      frontM: frontMatterDelta,
+      document: document,
     );
     try {
       final pw.Document doc = await converter.generateDoc();
@@ -285,8 +286,7 @@ class PDFConverter {
       if (isWeb) {
         List<int> fileInts = List<int>.from(bytes);
         web.AnchorElement()
-          ..href =
-              "data:application/octet-stream;charset=utf-16le;base64,${base64.encode(fileInts)}"
+          ..href = "data:application/octet-stream;charset=utf-16le;base64,${base64.encode(fileInts)}"
           ..setAttribute("download", File(path).uri.pathSegments.last)
           ..click();
         onSucessWrite?.call('');
@@ -299,33 +299,21 @@ class PDFConverter {
     }
   }
 
-  static Delta? processDelta(Delta? delta, qpdf.DeltaAttributesOptions options,
-      bool overrideAttributesPassedByUser) {
-    if (delta == null) return null;
-    if (delta.isEmpty) return delta;
-    final String json = qpdf
-        .applyAttributesIfNeeded(
-            json: jsonEncode(delta.toJson()),
-            attr: options,
-            overrideAttributes: overrideAttributesPassedByUser)
-        .fixCommonErrorInsertsInRawDelta
-        .withBrackets;
-    return Delta.fromJson(jsonDecode(json));
-  }
-
   /// Return a container with the widgets generated from the Document passed
   Future<pw.Widget?> generateWidget({
+    @Deprecated('deltaOptionalAttr is no longer used, and will be removed in future releases.')
     qpdf.DeltaAttributesOptions? deltaOptionalAttr,
+    @Deprecated('overrideAttributes is no longer used and will be removed in future releases.')
+    bool overrideAttributesPassedByUser = false,
+    @Deprecated('shouldProcessDeltas is no longer used and will be removed in future releases.')
+    bool shouldProcessDeltas = true,
     double? maxWidth,
     double? maxHeight,
-    bool overrideAttributesPassedByUser = false,
     void Function(dynamic error)? onException,
-    bool shouldProcessDeltas = true,
   }) async {
-    deltaOptionalAttr ??= qpdf.DeltaAttributesOptions.common();
     final qpdf.Converter<Delta, pw.Document> converter = qpdf.PdfService(
       pageFormat: pageFormat,
-      textDirection: textDirection.toPdf(),
+      directionality: textDirection.toPdf(),
       onRequestFontFamily: onRequestFontFamily,
       isWeb: isWeb,
       fonts: globalFontsFallbacks,
@@ -334,6 +322,9 @@ class PDFConverter {
       blockQuoteBackgroundColor: blockQuoteBackgroundColor,
       blockQuoteDividerColor: blockQuoteDividerColor,
       codeBlockBackgroundColor: codeBlockBackgroundColor,
+      enableCodeBlockHighlighting: enableCodeBlockHighlighting,
+      isLightCodeBlockTheme: isLightCodeBlockTheme,
+      customCodeHighlightTheme: customCodeHighlightTheme,
       codeBlockFont: codeBlockFont,
       codeBlockNumLinesTextStyle: codeBlockNumLinesTextStyle,
       codeBlockTextStyle: codeBlockTextStyle,
@@ -344,31 +335,27 @@ class PDFConverter {
       onDetectCodeBlock: onDetectCodeBlock,
       blockQuotePaddingLeft: blockQuotePaddingLeft,
       blockQuotePaddingRight: blockQuotePaddingRight,
+      onDetectErrorInImage: onDetectErrorInImage,
       blockQuotethicknessDividerColor: blockQuotethicknessDividerColor,
       onDetectHeaderBlock: onDetectHeaderBlock,
       onDetectImageBlock: onDetectImageBlock,
       onDetectInlineRichTextStyles: onDetectInlineRichTextStyles,
       onDetectLink: onDetectLink,
       onDetectList: onDetectList,
-      backM: !shouldProcessDeltas
-          ? backMatterDelta
-          : processDelta(backMatterDelta, deltaOptionalAttr,
-              overrideAttributesPassedByUser),
-      frontM: !shouldProcessDeltas
-          ? frontMatterDelta
-          : processDelta(frontMatterDelta, deltaOptionalAttr,
-              overrideAttributesPassedByUser),
-      document: !shouldProcessDeltas
-          ? document
-          : processDelta(
-              document, deltaOptionalAttr, overrideAttributesPassedByUser)!,
+      backM: backMatterDelta,
+      frontM: frontMatterDelta,
+      document: document,
     );
     try {
-      return await converter.generateWidget(
-          maxWidth: maxWidth, maxHeight: maxHeight);
+      return await converter.generateWidget(maxWidth: maxWidth, maxHeight: maxHeight);
     } catch (e) {
       onException?.call(e);
       rethrow;
     }
+  }
+
+  @Deprecated('processDelta is no longer used. It always return null now. It will be removed in future releases.')
+  static Delta? processDelta(Delta delta, DeltaAttributesOptions options, bool overrideAttributesPassedByUser) {
+    return null;
   }
 }
