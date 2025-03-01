@@ -10,4 +10,5 @@ typedef PDFLeadingWidget<W> = W Function(
 
 typedef PDFWidgetErrorBuilder<T, W, R> = W Function(T data, R alternativeData, [Object? extraArgs]);
 
-typedef PageBuilder = pw.Page Function(List<pw.Widget>, pw.ThemeData theme, PdfPageFormat pageFormat);
+typedef PageBuilder = pw.Page Function(
+    List<pw.Widget>, pw.ThemeData theme, PdfPageFormat pageFormat);

@@ -7,12 +7,12 @@ import 'package:flutter_quill_delta_easy_parser/flutter_quill_delta_easy_parser.
 import 'package:flutter_quill_to_pdf/converter/delta_processor/delta_attributes_options.dart';
 import 'package:flutter_quill_to_pdf/core/request/font_family_request.dart';
 import 'package:flutter_quill_to_pdf/core/response/font_family_response.dart';
+import 'package:flutter_quill_to_pdf/flutter_quill_to_pdf.dart' as qpdf;
 import 'package:flutter_quill_to_pdf/utils/extensions.dart';
 import 'package:flutter_quill_to_pdf/utils/typedefs.dart';
 import 'package:meta/meta.dart';
 import 'package:pdf/pdf.dart' show PdfColor;
 import 'package:pdf/widgets.dart' as pw;
-import 'package:flutter_quill_to_pdf/flutter_quill_to_pdf.dart' as qpdf;
 import 'package:universal_html/html.dart' as web;
 
 class PDFConverter {

@@ -12,16 +12,17 @@ import 'package:flutter_quill_to_pdf/converter/configurator/utils/hightlight_the
 import 'package:flutter_quill_to_pdf/core/constant/constants.dart';
 import 'package:flutter_quill_to_pdf/flutter_quill_to_pdf.dart';
 import 'package:highlight/highlight.dart';
+import 'package:http/http.dart' as http;
 import 'package:meta/meta.dart';
 import 'package:numerus/roman/roman.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:pdf/pdf.dart' show PdfColor, PdfColors, PdfPageFormat, PdfTextRenderingMode;
+import 'package:pdf/pdf.dart'
+    show PdfColor, PdfColors, PdfPageFormat, PdfTextRenderingMode;
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../utils/css.dart';
 import 'attribute_functions.dart';
 import 'document_functions.dart';
-import 'package:http/http.dart' as http;
 
 abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
     implements
@@ -53,12 +54,15 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
   final Delta? backM;
   final List<double>? customHeadingSizes;
   final List<CustomWidget> customBuilders;
-  final FontFamilyResponse Function(FontFamilyRequest familyRequest)? onRequestFontFamily;
+  final FontFamilyResponse Function(FontFamilyRequest familyRequest)?
+      onRequestFontFamily;
   final PDFWidgetBuilder<Line, pw.Widget>? onDetectImageBlock;
   final PDFWidgetErrorBuilder<String, pw.Widget, Line>? onDetectErrorInImage;
-  final PDFWidgetBuilder<Line, List<pw.InlineSpan>>? onDetectInlineRichTextStyles;
+  final PDFWidgetBuilder<Line, List<pw.InlineSpan>>?
+      onDetectInlineRichTextStyles;
   final PDFWidgetBuilder<List<pw.InlineSpan>, pw.Widget>? onDetectHeaderBlock;
-  final PDFWidgetBuilder<List<pw.InlineSpan>, pw.Widget>? onDetectAlignedParagraph;
+  final PDFWidgetBuilder<List<pw.InlineSpan>, pw.Widget>?
+      onDetectAlignedParagraph;
   final PDFWidgetBuilder<Line, List<pw.InlineSpan>>? onDetectCommonText;
   final PDFLeadingWidget<pw.Widget?>? listLeadingBuilder;
 
@@ -85,8 +89,8 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
   final double? blockQuotethicknessDividerColor;
   final double? blockQuotePaddingLeft;
   final double? blockQuotePaddingRight;
-  final int defaultFontSize =
-      Constant.DEFAULT_FONT_SIZE; //avoid spans without font sizes not appears in the document
+  final int defaultFontSize = Constant
+      .DEFAULT_FONT_SIZE; //avoid spans without font sizes not appears in the document
   late final double pageWidth, pageHeight;
   final bool isWeb;
   PdfConfigurator({
@@ -132,10 +136,11 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
     pw.AlignmentDirectional? alignment,
     pw.TextDirection? textDirection,
   ]) async {
-    double? width = null;
-    double? height = null;
+    double? width;
+    double? height;
     final String data = (line.data as Map<String, dynamic>)['image'];
-    final Map<String, dynamic> attributes = parseCssStyles(line.attributes?['style'] ?? '', 'left');
+    final Map<String, dynamic> attributes =
+        parseCssStyles(line.attributes?['style'] ?? '', 'left');
     if (attributes.isNotEmpty) {
       width = attributes['width'] ?? pageWidth;
       height = attributes['height'];
@@ -155,7 +160,8 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
           file = File(pathStorage);
           await Dio().download(data, pathStorage);
         } on DioException {
-          final pw.Widget? errorWidget = onDetectErrorInImage?.call(data, line, alignment);
+          final pw.Widget? errorWidget =
+              onDetectErrorInImage?.call(data, line, alignment);
           return errorWidget ?? pw.SizedBox.shrink();
         }
       } else if (Constant.isFromLocalStorage(data)) {
@@ -168,14 +174,18 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
           file = File(pathStorage);
           await file.writeAsBytes(bytes);
         } on DioException {
-          final pw.Widget? errorWidget = onDetectErrorInImage?.call(data, line, alignment);
+          final pw.Widget? errorWidget =
+              onDetectErrorInImage?.call(data, line, alignment);
           return errorWidget ?? pw.SizedBox.shrink();
         }
       }
     }
 
-    if (isWeb ? (imageBytes == null || imageBytes.isEmpty) : (file == null || !(await file.exists()))) {
-      final pw.Widget? errorWidget = onDetectErrorInImage?.call(data, line, alignment);
+    if (isWeb
+        ? (imageBytes == null || imageBytes.isEmpty)
+        : (file == null || !(await file.exists()))) {
+      final pw.Widget? errorWidget =
+          onDetectErrorInImage?.call(data, line, alignment);
       return errorWidget ?? pw.SizedBox.shrink();
     }
 
@@ -183,6 +193,7 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
     if (height != null && height >= pageHeight) height = pageHeight;
     // verify if exceded width using page format params
     if (width != null && width >= pageWidth) width = pageWidth;
+
     return pw.Container(
       child: pw.RichText(
         softWrap: true,
@@ -192,7 +203,8 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
           child: pw.Container(
             width: pageWidth,
             alignment: alignment,
-            constraints: height == null ? const pw.BoxConstraints(maxHeight: 450) : null,
+            constraints:
+                height == null ? const pw.BoxConstraints(maxHeight: 450) : null,
             child: pw.Image(
               pw.MemoryImage(isWeb ? imageBytes! : (await file!.readAsBytes())),
               dpi: 230,
@@ -223,15 +235,19 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
   ]) async {
     final List<pw.InlineSpan> spans = <pw.InlineSpan>[];
     final PdfColor? textColor = pdfColorString(line.attributes?['color']);
-    final PdfColor? backgroundTextColor = pdfColorString(line.attributes?['background']);
+    final PdfColor? backgroundTextColor =
+        pdfColorString(line.attributes?['background']);
     final double? spacing = line.attributes?['line-height'];
     final String? fontFamily = line.attributes?['font'];
     final Object? fontSizeMatch = line.attributes?['size'];
-    double? fontSizeHelper = defaultTheme.defaultTextStyle.fontSize ?? defaultTheme.defaultTextStyle.fontSize;
+    double? fontSizeHelper = defaultTheme.defaultTextStyle.fontSize ??
+        defaultTheme.defaultTextStyle.fontSize;
     if (fontSizeMatch != null) {
       if (fontSizeMatch == 'large') fontSizeHelper = 15.5;
       if (fontSizeMatch == 'huge') fontSizeHelper = 18.5;
-      if (fontSizeMatch != 'huge' && fontSizeMatch != 'large' && fontSizeMatch != 'small') {
+      if (fontSizeMatch != 'huge' &&
+          fontSizeMatch != 'large' &&
+          fontSizeMatch != 'small') {
         if (fontSizeMatch is String) {
           fontSizeHelper = double.tryParse(fontSizeMatch) ?? fontSizeHelper;
         }
@@ -247,7 +263,8 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
     final double? fontSize = !addFontSize ? null : fontSizeHelper;
     final String content = line.data as String;
     final double? lineSpacing = spacing?.resolveLineHeight();
-    final FontFamilyResponse? fontResponse = onRequestFontFamily?.call(FontFamilyRequest(
+    final FontFamilyResponse? fontResponse =
+        onRequestFontFamily?.call(FontFamilyRequest(
       family: fontFamily ?? Constant.DEFAULT_FONT_FAMILY,
       isBold: bold,
       isItalic: italic,
@@ -298,7 +315,9 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
       ),
     );
     if (returnContentIfNeedIt && spans.isEmpty) {
-      return <pw.TextSpan>[pw.TextSpan(text: line.data as String, style: style ?? decided_style)];
+      return <pw.TextSpan>[
+        pw.TextSpan(text: line.data as String, style: style ?? decided_style)
+      ];
     }
     return spans;
   }
@@ -326,10 +345,12 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
       textDirection: textDirection ?? directionality,
       child: pw.Container(
         padding: pw.EdgeInsetsDirectional.only(
-          start: blockQuotePaddingLeft ?? (indentLevel > 0 ? indentLevel * 12.5 : 10),
+          start: blockQuotePaddingLeft ??
+              (indentLevel > 0 ? indentLevel * 12.5 : 10),
           end: blockQuotePaddingRight ?? 10,
         ),
-        margin: pw.EdgeInsetsDirectional.only(top: isFirstBlockLine ? 10 : 0, bottom: isLastBlockLine ? 10 : 0),
+        margin: pw.EdgeInsetsDirectional.only(
+            top: isFirstBlockLine ? 10 : 0, bottom: isLastBlockLine ? 10 : 0),
         decoration: pw.BoxDecoration(
           color: this.blockQuoteBackgroundColor ?? PdfColor.fromHex('#fbfbf9'),
           border: pw.Border(
@@ -386,10 +407,12 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
       wordSpacing: 1.0,
       color: PdfColor.fromHex("#808080"),
     );
-    final pw.TextStyle codeBlockStyle =
-        codeBlockTextStyle ?? defaultCodeBlockStyle.merge(defaultTheme.defaultTextStyle.copyWith(lineSpacing: 1.0));
+    final pw.TextStyle codeBlockStyle = codeBlockTextStyle ??
+        defaultCodeBlockStyle
+            .merge(defaultTheme.defaultTextStyle.copyWith(lineSpacing: 1.0));
     final Iterable<pw.InlineSpan> spans = !enableCodeBlockHighlighting
-        ? spansToWrap.map<pw.InlineSpan>((pw.InlineSpan span) => span.copyWith(style: codeBlockStyle))
+        ? spansToWrap.map<pw.InlineSpan>(
+            (pw.InlineSpan span) => span.copyWith(style: codeBlockStyle))
         : getHighlight(
             spansToWrap
                 .map<String>(
@@ -410,7 +433,9 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
           top: isFirstBlockLine ? 10 : 2,
           bottom: isLastBlockLine ? 10 : 2,
         ),
-        margin: !isFirstBlockLine && !isLastBlockLine ? const pw.EdgeInsetsDirectional.only(top: -1) : null,
+        margin: !isFirstBlockLine && !isLastBlockLine
+            ? const pw.EdgeInsetsDirectional.only(top: -1)
+            : null,
         child: pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.start,
           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -450,12 +475,14 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
   }
 
   @override
-  Future<List<pw.TextSpan>> getLinkStyle(Line line, [pw.TextStyle? style, bool addFontSize = true]) async {
+  Future<List<pw.TextSpan>> getLinkStyle(Line line,
+      [pw.TextStyle? style, bool addFontSize = true]) async {
     final List<pw.TextSpan> spans = <pw.TextSpan>[];
     final double? lineHeight = line.attributes?['line-height'];
     final String? fontFamily = line.attributes?['font'];
     final PdfColor? textColor = pdfColorString(line.attributes?['color']);
-    final PdfColor? backgroundTextColor = pdfColorString(line.attributes?['background']);
+    final PdfColor? backgroundTextColor =
+        pdfColorString(line.attributes?['background']);
     final double? lineSpacing = lineHeight?.resolveLineHeight();
     final bool bold = line.attributes?['bold'] ?? false;
     final bool italic = line.attributes?['italic'] ?? false;
@@ -463,7 +490,8 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
     final bool underline = line.attributes?['underline'] ?? false;
     final String href = line.attributes!['link'];
     final String hrefContent = line.data as String;
-    final FontFamilyResponse? fontResponse = onRequestFontFamily?.call(FontFamilyRequest(
+    final FontFamilyResponse? fontResponse =
+        onRequestFontFamily?.call(FontFamilyRequest(
       family: fontFamily ?? Constant.DEFAULT_FONT_FAMILY,
       isBold: bold,
       isItalic: italic,
@@ -476,7 +504,9 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
     if (fontSizeMatch != null) {
       if (fontSizeMatch == 'large') fontSize = 15.5;
       if (fontSizeMatch == 'huge') fontSize = 18.5;
-      if (fontSizeMatch != 'huge' && fontSizeMatch != 'large' && fontSizeMatch != 'small') {
+      if (fontSizeMatch != 'huge' &&
+          fontSizeMatch != 'large' &&
+          fontSizeMatch != 'small') {
         if (fontSizeMatch is String) {
           fontSize = double.tryParse(fontSizeMatch) ?? fontSize;
         }
@@ -491,7 +521,9 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
         text: hrefContent,
         style: (style ?? defaultTheme.defaultTextStyle).copyWith(
           color: textColor ?? defaultLinkColor,
-          background: backgroundTextColor == null ? null : pw.BoxDecoration(color: backgroundTextColor),
+          background: backgroundTextColor == null
+              ? null
+              : pw.BoxDecoration(color: backgroundTextColor),
           fontStyle: italic ? pw.FontStyle.italic : null,
           fontWeight: bold ? pw.FontWeight.bold : null,
           decoration: pw.TextDecoration.combine(<pw.TextDecoration>[
@@ -521,8 +553,8 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
     pw.TextStyle? style,
     pw.TextDirection? textDirection,
   ]) async {
-    final double defaultFontSize =
-        headerLevel.resolveHeaderLevel(headingSizes: customHeadingSizes ?? Constant.kDefaultHeadingSizes);
+    final double defaultFontSize = headerLevel.resolveHeaderLevel(
+        headingSizes: customHeadingSizes ?? Constant.kDefaultHeadingSizes);
     //TODO: we should implement defaultTheme.header(level) instead change styles manually
     final pw.TextStyle textStyle = style?.copyWith(
           fontSize: defaultFontSize,
@@ -544,8 +576,9 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
           softWrap: true,
           overflow: pw.TextOverflow.span,
           textDirection: textDirection ?? directionality,
-          textAlign:
-              (textDirection ?? directionality) == pw.TextDirection.rtl ? pw.TextAlign.end : pw.TextAlign.start,
+          textAlign: (textDirection ?? directionality) == pw.TextDirection.rtl
+              ? pw.TextAlign.end
+              : pw.TextAlign.start,
           text: pw.TextSpan(
             style: textStyle,
             children: spansToWrap,
@@ -566,9 +599,10 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
   ]) async {
     final String alignment = align;
     final pw.AlignmentDirectional al = alignment.resolvePdfBlockAlign;
-    final pw.TextAlign textAlign = (textDirection ?? directionality) == pw.TextDirection.rtl
-        ? alignment.resolvePdfTextAlign.reversed
-        : alignment.resolvePdfTextAlign;
+    final pw.TextAlign textAlign =
+        (textDirection ?? directionality) == pw.TextDirection.rtl
+            ? alignment.resolvePdfTextAlign.reversed
+            : alignment.resolvePdfTextAlign;
 
     final double spacing = (spansToWrap.firstOrNull?.style?.lineSpacing ?? 1.0);
     return pw.Directionality(
@@ -641,28 +675,35 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
     //
     // with this we ensure to have the styles of the spans and apply the
     // size of that span to the leading
-    final pw.TextStyle? firstSpanStyle = spansToWrap.isNotEmpty ? spansToWrap.first.style : null;
+    final pw.TextStyle? firstSpanStyle =
+        spansToWrap.isNotEmpty ? spansToWrap.first.style : null;
     final double? spacing = firstSpanStyle?.lineSpacing;
     if (listLeadingBuilder != null) {
-      final pw.Widget? leading = listLeadingBuilder!(listType, indentLevel, <String, dynamic>{
+      final pw.Widget? leading =
+          listLeadingBuilder!(listType, indentLevel, <String, dynamic>{
         'currentStyle': style,
         'firstWordStyle': firstSpanStyle,
         'lineSpacing': spacing,
-        if (listType == 'ordered') 'lineNumber': _getListIdentifier(indentLevel),
+        if (listType == 'ordered')
+          'lineNumber': _getListIdentifier(indentLevel),
       });
       if (leading != null) leadingWidget = leading;
     }
     // use default leading builders
     if (leadingWidget == null) {
       if (listType == 'bullet') {
-        final double? circleSize = firstSpanStyle?.fontSize == null ? null : firstSpanStyle!.fontSize! * 0.3;
+        final double? circleSize = firstSpanStyle?.fontSize == null
+            ? null
+            : firstSpanStyle!.fontSize! * 0.3;
         // we need to compute the margin size to position
         // the bullet where we expect
-        final double? effectiveCircleMargin = circleSize != null ? (circleSize / 2) * 1.11 : null;
+        final double? effectiveCircleMargin =
+            circleSize != null ? (circleSize / 2) * 1.11 : null;
         leadingWidget = pw.Container(
           width: circleSize ?? 0.85 * PdfPageFormat.mm,
           height: circleSize ?? 0.85 * PdfPageFormat.mm,
-          margin: pw.EdgeInsetsDirectional.only(bottom: effectiveCircleMargin ?? 0.85 * PdfPageFormat.mm),
+          margin: pw.EdgeInsetsDirectional.only(
+              bottom: effectiveCircleMargin ?? 0.85 * PdfPageFormat.mm),
           decoration: const pw.BoxDecoration(
             color: PdfColors.black,
             shape: pw.BoxShape.circle,
@@ -699,7 +740,8 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
               if (listType != 'ordered' || leadingWidget != null)
                 pw.WidgetSpan(
                   child: leadingWidget!,
-                  style: firstSpanStyle?.merge(defaultTheme.defaultTextStyle) ?? defaultTheme.defaultTextStyle,
+                  style: firstSpanStyle?.merge(defaultTheme.defaultTextStyle) ??
+                      defaultTheme.defaultTextStyle,
                 ),
               if (listType == 'ordered' && leadingWidget == null)
                 pw.TextSpan(
@@ -708,7 +750,8 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
                 ),
               pw.TextSpan(
                 text: '  ',
-                style: firstSpanStyle?.merge(defaultTheme.defaultTextStyle) ?? defaultTheme.defaultTextStyle,
+                style: firstSpanStyle?.merge(defaultTheme.defaultTextStyle) ??
+                    defaultTheme.defaultTextStyle,
               ),
               ...spansToWrap
             ],
@@ -779,8 +822,8 @@ abstract class PdfConfigurator<T, D> extends ConverterConfigurator<T, D>
     final List<List<pw.TextSpan>> stack = <List<pw.TextSpan>>[<pw.TextSpan>[]];
     List<pw.TextSpan> currentSpans = spans;
 
-    final Map<String, pw.TextStyle> cbTheme =
-        customCodeHighlightTheme ?? (isLightCodeBlockTheme ? lightThemeInCodeblock : darkThemeInCodeBlock);
+    final Map<String, pw.TextStyle> cbTheme = customCodeHighlightTheme ??
+        (isLightCodeBlockTheme ? lightThemeInCodeblock : darkThemeInCodeBlock);
 
     void traverse(Node node) {
       if (node.value != null) {
